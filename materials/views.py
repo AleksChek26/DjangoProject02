@@ -1,3 +1,6 @@
+from datetime import timedelta
+
+from django.utils import timezone
 from rest_framework.generics import (CreateAPIView, DestroyAPIView,
                                      ListAPIView, RetrieveAPIView,
                                      UpdateAPIView, get_object_or_404)
@@ -24,10 +27,10 @@ class CourseViewSet(ModelViewSet):
         return CourseSerializer
 
     def get_permissions(self):
-        if self.action in ['create', 'destroy']:
+        if self.action in ["create", "destroy"]:
             # Модераторам нельзя создавать и удалять
             self.permission_classes = [IsAuthenticated, ~IsModerator]
-        elif self.action in ['update', 'partial_update', 'list', 'retrieve']:
+        elif self.action in ["update", "partial_update", "list", "retrieve"]:
             # Модераторы могут просматривать и редактировать
             self.permission_classes = [IsAuthenticated, IsModerator]
         return super().get_permissions()
@@ -36,10 +39,20 @@ class CourseViewSet(ModelViewSet):
         serializer.save(owner=self.request.user)
 
     def perform_update(self, serializer):
-
         instance = serializer.save()
+        now = timezone.now()
 
-        send_course_update_emails.delay(instance.id, instance.title)
+        # Проверяем, прошло ли более 4 часов с последней рассылки
+        if (
+            instance.last_update_sent is None
+            or now - instance.last_update_sent > timedelta(hours=4)
+        ):
+            send_course_update_emails.delay(instance.id, instance.title)
+
+            # Обновляем время последней отправки
+            instance.last_update_sent = now
+            instance.save()
+
 
 class LessonCreateAPIView(CreateAPIView):
     queryset = Lesson.objects.all()
@@ -48,7 +61,7 @@ class LessonCreateAPIView(CreateAPIView):
 
 
 class LessonListAPIView(ListAPIView):
-    queryset = Lesson.objects.all().order_by('id')
+    queryset = Lesson.objects.all().order_by("id")
     serializer_class = LessonSerializer
     permission_classes = [IsAuthenticated, IsModerator | IsOwner]
     pagination_class = CustomPagination
@@ -70,21 +83,22 @@ class LessonDestroyAPIView(DestroyAPIView):
     serializer_class = LessonSerializer
     permission_classes = [IsAuthenticated, IsOwner]
 
+
 class SubscriptionAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, *args, **kwargs):
         user = self.request.user
-        course_id = self.request.data.get('course')
+        course_id = self.request.data.get("course")
         course_item = get_object_or_404(Course, pk=course_id)
 
         subs_item = Subscription.objects.filter(user=user, course=course_item)
 
         if subs_item.exists():
             subs_item.delete()
-            message = 'Подписка удалена'
+            message = "Подписка удалена"
         else:
             Subscription.objects.create(user=user, course=course_item)
-            message = 'Подписка добавлена'
+            message = "Подписка добавлена"
 
         return Response({"message": message})
