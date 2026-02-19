@@ -9,8 +9,14 @@ class Course(models.Model):
         upload_to="courses/", verbose_name="Превью", null=True, blank=True
     )
     description = models.TextField(verbose_name="Описание")
-    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True,
-                              verbose_name="Владелец")
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        verbose_name="Владелец",
+    )
+    last_update_sent = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         verbose_name = "Курс"
@@ -30,8 +36,13 @@ class Lesson(models.Model):
         upload_to="lessons/", verbose_name="Превью", null=True, blank=True
     )
     video_url = models.URLField(verbose_name="Ссылка на видео", null=True, blank=True)
-    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True,
-                              verbose_name="Владелец")
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        verbose_name="Владелец",
+    )
 
     class Meta:
         verbose_name = "Урок"
@@ -40,22 +51,17 @@ class Lesson(models.Model):
     def __str__(self):
         return self.title
 
+
 class Subscription(models.Model):
     user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        verbose_name='Пользователь'
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, verbose_name="Пользователь"
     )
-    course = models.ForeignKey(
-        'Course',
-        on_delete=models.CASCADE,
-        verbose_name='Курс'
-    )
+    course = models.ForeignKey("Course", on_delete=models.CASCADE, verbose_name="Курс")
 
     def __cloning__(self):
-        return f'{self.user} - {self.course}'
+        return f"{self.user} - {self.course}"
 
     class Meta:
-        verbose_name = 'Подписка'
-        verbose_name_plural = 'Подписки'
-        unique_together = ('user', 'course')
+        verbose_name = "Подписка"
+        verbose_name_plural = "Подписки"
+        unique_together = ("user", "course")
