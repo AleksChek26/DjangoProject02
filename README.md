@@ -79,3 +79,54 @@
 
      docker-compose logs celery
     В логах должны быть сообщения о запуске воркера и готовности принимать задачи. 
+
+### Celery Beat (планировщик)
+    Проверьте логи планировщика:
+
+     docker-compose logs celery-beat
+    В логах должны быть сообщения о планировании периодических задач. Ищите строки вида:
+
+    [INFO] Scheduler: Sending due task <имя_задачи>
+    [INFO] DatabaseScheduler: Schedule changed.
+    Если планировщик не находит задачи, убедитесь, что: 
+
+     -миграции выполнены(python manage.py migrate)
+
+     -периодические задачи зарегистрированы в admin Django или через код.
+ 
+## Переменные окружения
+### Все чувствительные данные вынесены в файл .env. Шаблон .env.example содержит следующие переменные:
+
+### .env
+#### Database
+    POSTGRES_DB=myproject
+    POSTGRES_USER=user
+    POSTGRES_PASSWORD=changeme
+    DB_HOST=db
+    DB_PORT=5432
+
+#### Django
+    SECRET_KEY=your-secret-key-here
+    DEBUG=False
+    ALLOWED_HOSTS=localhost,127.0.0.1
+
+#### Redis
+    REDIS_URL=redis://redis:6379/0
+
+#### Celery
+    CELERY_BROKER_URL=redis://redis:6379/0
+    CELERY_RESULT_BACKEND=redis://redis:6379/0
+
+### Важно: не коммитьте файл .env в репозиторий. Он добавлен в .gitignore.
+
+## Документация:
+
+    Для получения дополнительной информации обратитесь в службу поддержки по телефонам указанным в контактах.
+
+## Лицензия
+    
+     Проект выполнен по лицензии MIT
+
+## Автор
+
+### Чекунов Александр Николаевич
