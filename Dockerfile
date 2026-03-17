@@ -1,23 +1,53 @@
-FROM python:3.12
-
-# Устанавливаем Poetry
-RUN pip install poetry
+# Этап 1: сборка приложения
+FROM python:3.11-slim as builder
 
 WORKDIR /app
 
-# Копируем файлы зависимостей
+# Установка системных зависимостей
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+# Установка Poetry
+RUN pip install poetry
+
+# Копирование файлов зависимостей
 COPY pyproject.toml poetry.lock ./
 
-# Устанавливаем зависимости через Poetry
+# Установка зависимостей в виртуальное окружение
 RUN poetry config virtualenvs.create false \
-    && poetry install --no-interaction --no-ansi
+    && poetry install --no-dev --no-interaction --no-ansi
 
-# Копируем код приложения
-COPY . .
+# Этап 2: создание финального образа
+FROM python:3.11-slim
 
-# Собираем статику (если нужно)
-RUN python manage.py collectstatic --noinput
+WORKDIR /app
 
-EXPOSE 8000
+# Установка Nginx
+RUN apt-get update && apt-get install -y nginx \
+    && rm -rf /var/lib/apt/lists/* \
+    && rm /etc/nginx/conf.d/default.conf
 
-CMD ["python", "manage.py", "runserver", "0.0.0:8000"]
+# Копирование собранного приложения
+COPY --from=builder /app /app
+COPY --from=builder /root/.cache /root/.cache
+
+# Копирование конфигурации Nginx
+COPY nginx.conf /etc/nginx/nginx.conf
+
+# Создание пользователя для приложения
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+RUN chown -R appuser:appuser /app
+RUN chown -R www-data:www-data /var/cache/nginx /var/run/nginx.pid
+
+# Копирование скриптов запуска
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+# Открытие портов
+EXPOSE 80
+
+# Точка входа
+USER appuser
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
