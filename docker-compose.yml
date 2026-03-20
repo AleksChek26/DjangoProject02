@@ -10,7 +10,7 @@ services:
     expose:
       - "8000"
     environment:
-      - DJANGO_SETTINGS_MODULE=myproject.settings  # для Django
+      - DJANGO_SETTINGS_MODULE=config.settings  # для Django
       - PYTHONPATH=/app
     volumes:
       - static_volume:/app/static
@@ -21,7 +21,7 @@ services:
       sh -c "
         python manage.py collectstatic --noinput &&
         python manage.py migrate &&
-        poetry run gunicorn --bind 0.0.0.0:8000 myproject.wsgi:application
+        poetry run gunicorn --bind 0.0.0.0:8000 config.wsgi:application
       "
 
   nginx:
