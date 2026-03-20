@@ -72,6 +72,91 @@
 
     docker-compose exec web python manage.py createsuperuser
 
+## Настройка сервера
+### Требования к серверу
+* Ubuntu 22.04+ или аналогичная система;
+* Docker и Docker Compose;
+* Python 3.12+;
+* Poetry;
+* Nginx;
+* UFW (Uncomplicated Firewall).
+
+### Шаг 1. Подготовка сервера
+
+    Обновление системы
+    sudo apt update && sudo apt upgrade -y
+
+    Установка Docker
+    curl -fsSL https://get.docker.com -o get-docker.sh
+    sudo sh get-docker.sh
+    sudo usermod -aG docker $USER
+
+    Установка Poetry
+    curl -sSL https://install.python-poetry.org | python3 -
+
+    Установка Nginx
+    sudo apt install nginx -y
+
+    Установка UFW
+    sudo apt install ufw -y
+### Шаг 2. Настройка файрвола (UFW)
+
+    sudo ufw allow ssh
+    sudo ufw allow 'Nginx Full'  # HTTP/HTTPS
+    sudo ufw enable
+    sudo ufw status
+
+## Настройка GitHub Actions и автодеплоя
+### Шаг 1. Создание секретов в GitHub
+#### В репозитории перейдите в Settings → Secrets and variables → Actions и создайте:
+
+    SECRET_KEY — секретный ключ Django;
+    SERVER_HOST — IP‑адрес сервера;
+    SERVER_USER — пользователь для SSH (например, deploy);
+    SSH_PRIVATE_KEY — приватный SSH‑ключ (добавьте содержимое ~/.ssh/id_rsa);
+    DB_PASSWORD — пароль БД для продакшена.
+
+### Шаг 2. Настройка SSH‑доступа
+#### На сервере сгенерируйте SSH‑ключ:
+    ssh-keygen -t ed25519 -C "github-actions" -f ~/.ssh/github_actions -N ""
+#### Добавьте публичный ключ в authorized_keys:
+    cat ~/.ssh/github_actions.pub >> ~/.ssh/authorized_key
+#### В GitHub Secrets добавьте содержимое приватного ключа (~/.ssh/github_actions).
+
+## Запуск workflow и порядок деплоя
+### Порядок выполнения
+#### Коммит в любую ветку
+#### Автозапуск workflow в GitHub Actions:
+    -тесты выполняются в контейнере с PostgreSQL;
+    -при успехе запускается деплой.
+#### Деплой на сервер:
+    -код вытягивается из текущей ветки (git pull origin $GITHUB_REF_NAME);
+    -устанавливаются зависимости через Poetry;
+    -выполняются миграции БД;
+    -собирается статика.
+
+## Мониторинг деплоя
+### В GitHub перейдите в Actions.
+#### Выберите текущий workflow.
+#### Проверьте логи:
+    job test — должны пройти все тесты;
+    job deploy — должен завершиться без ошибок.
+#### На сервере проверьте статус сервисов:
+    sudo systemctl status gunicorn
+    docker-compose logs web
+
+## Безопасность и мониторинг
+### Меры безопасности
+* SSH: отключите пароль‑аутентификацию, используйте только ключи.
+* Файрвол: разрешите только порты 22 (SSH), 80 (HTTP), 443 (HTTPS).
+* БД: не открывайте PostgreSQL наружу (используйте 127.0.0.1 в настройках).
+* Secrets: храните все пароли и ключи в GitHub Secrets или Hashicorp Vault.
+
+### Мониторинг
+#### Логи: регулярно проверяйте логи:
+    sudo journalctl -u gunicorn -f
+    docker-compose logs -f web
+
 ## Проверка работоспособности сервисов
 ### Веб‑сервис (Django/DRF через Nginx)
 
