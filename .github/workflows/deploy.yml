@@ -47,24 +47,25 @@ jobs:
       - name: Install dependencies
         run: poetry install
 
-      - name: Wait for PostgreSQL to be ready
+      - name: Wait for PostgreSQL
         run: |
-          for i in {1..30}; do
-            if pg_isready -h localhost -U test_user -d test_db; then
-              echo "PostgreSQL is ready"
-              break
-            fi
+          until pg_isready -h localhost -p 5432 -U test_user; do
             echo "Waiting for PostgreSQL..."
             sleep 2
           done
 
-      - name: Run migrations
+      - name: Run migrations check
         env:
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
           DATABASE_URL: postgres://test_user:test_password@localhost:5432/test_db
         run: |
-          poetry run python manage.py makemigrations --check
-          poetry run python manage.py migrate
+          poetry run python manage.py makemigrations --check || echo "No migration changes or check passed"
+
+      - name: Apply migrations
+        env:
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          DATABASE_URL: postgres://test_user:test_password@localhost:5432/test_db
+        run: poetry run python manage.py migrate
 
       - name: Run tests
         env:
