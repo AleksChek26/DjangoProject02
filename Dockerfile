@@ -17,7 +17,7 @@ COPY pyproject.toml poetry.lock ./
 
 # Установка зависимостей в виртуальное окружение
 RUN poetry config virtualenvs.create false \
-    && poetry install --no-dev --no-interaction --no-ansi
+    && poetry install --no-interaction --no-ansi
 
 # Этап 2: создание финального образа
 FROM python:3.11-slim
