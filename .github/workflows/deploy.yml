@@ -47,6 +47,17 @@ jobs:
       - name: Install dependencies
         run: poetry install
 
+      - name: Wait for PostgreSQL to be ready
+        run: |
+          for i in {1..30}; do
+            if pg_isready -h localhost -U test_user -d test_db; then
+              echo "PostgreSQL is ready"
+              break
+            fi
+            echo "Waiting for PostgreSQL..."
+            sleep 2
+          done
+
       - name: Run migrations
         env:
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
@@ -75,31 +86,19 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            # Переход в директорию проекта
             cd /home/deploy/myproject || { echo "Directory not found"; exit 1; }
-
-            # Обновление кода
             git pull origin ${{ github.ref_name }} || { echo "Git pull failed"; exit 1; }
 
-            # Установка Poetry на сервере (если ещё не установлен)
             if ! command -v poetry &> /dev/null; then
               curl -sSL https://install.python-poetry.org | python3 -
             fi
 
-            # Настройка Poetry
             poetry config virtualenvs.create false
-
-            # Установка зависимостей через Poetry
             poetry install --no-interaction --no-ansi --only=main
 
-            # Миграции БД
             poetry run python manage.py migrate
-
-            # Сбор статических файлов
             poetry run python manage.py collectstatic --noinput
 
-            # Перезапуск сервисов
             sudo systemctl restart gunicorn || { echo "Failed to restart gunicorn"; exit 1; }
             sudo systemctl restart nginx || { echo "Failed to restart nginx"; exit 1; }
-
             echo "Deployment completed successfully"
