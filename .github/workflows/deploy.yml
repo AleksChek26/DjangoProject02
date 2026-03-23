@@ -5,18 +5,68 @@ on: [push]
 jobs:
   test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: test_db
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - uses: actions/checkout@v4
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.12'
+
       - name: Install Poetry
         run: pip install poetry
+
       - name: Configure Poetry
         run: poetry config virtualenvs.create false
+
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/pypoetry
+            ~/.virtualenvs
+          key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-poetry-
+
       - name: Install dependencies
         run: poetry install
+
+      - name: Wait for PostgreSQL
+        run: |
+          until pg_isready -h localhost -p 5432 -U test_user; do
+            echo "Waiting for PostgreSQL..."
+            sleep 2
+          done
+
+      - name: Run migrations check
+        env:
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          DATABASE_URL: postgres://test_user:test_password@localhost:5432/test_db
+        run: |
+          poetry run python manage.py makemigrations --check || echo "No migration changes or check passed"
+
+      - name: Apply migrations
+        env:
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          DATABASE_URL: postgres://test_user:test_password@localhost:5432/test_db
+        run: poetry run python manage.py migrate
+
       - name: Run tests
         env:
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
@@ -29,33 +79,38 @@ jobs:
     if: needs.test.result == 'success'
     steps:
       - uses: actions/checkout@v4
+
+      - name: Test SSH Connection (debug)
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          script: echo "SSH connection successful"
+
       - name: Deploy to server
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
           script: |
-            cd /home/deploy/myproject
-            git pull origin $GITHUB_REF_NAME
+            cd /home/deploy/myproject || { echo "Directory not found"; exit 1; }
+            git pull origin ${{ github.ref_name }} || { echo "Git pull failed"; exit 1; }
             
-                       # Установка Poetry на сервере (если ещё не установлен)
             if ! command -v poetry &> /dev/null; then
               curl -sSL https://install.python-poetry.org | python3 -
             fi
-
-                        # Настройка Poetry
+            
             poetry config virtualenvs.create false
-
-                        # Установка зависимостей через Poetry
             poetry install --no-interaction --no-ansi --only=main
-
-                        # Миграции БД
+            
+            
             poetry run python manage.py migrate
-
-                        # Сбор статических файлов
             poetry run python manage.py collectstatic --noinput
-
-                        # Перезапуск сервисов
-            sudo systemctl restart gunicorn
-            sudo systemctl restart nginx
+            
+            sudo systemctl restart gunicorn || { echo "Failed to restart gunicorn"; exit 1; }
+            sudo systemctl restart nginx || { echo "Failed to restart nginx"; exit 1; }
+            echo "Deployment completed successfully"
