@@ -14,7 +14,7 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 
 DEBUG = True if os.getenv("DEBUG") == "True" else False
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'server-ip']
+ALLOWED_HOSTS = ["localhost", "127.0.0.1", "server-ip"]
 
 
 INSTALLED_APPS = [
@@ -80,14 +80,14 @@ WSGI_APPLICATION = "config.wsgi.application"
 
 DATABASES = {
     "default": {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('POSTGRES_DB', 'test_db'),
-        'USER': os.environ.get('POSTGRES_USER', 'test_user'),
-        'PASSWORD': os.environ.get('POSTGRES_PASSWORD', 'test_password'),
-        'HOST': os.environ.get('DB_HOST', 'localhost'),
-        'PORT': os.environ.get('DB_PORT', '5432'),
-        'TEST': {
-            'NAME': 'test_' + os.environ.get('POSTGRES_DB', 'test_db'),
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.environ.get("POSTGRES_DB", "test_db"),
+        "USER": os.environ.get("POSTGRES_USER", "test_user"),
+        "PASSWORD": os.environ.get("POSTGRES_PASSWORD", "test_password"),
+        "HOST": os.environ.get("DB_HOST", "localhost"),
+        "PORT": os.environ.get("DB_PORT", "5432"),
+        "TEST": {
+            "NAME": "test_" + os.environ.get("POSTGRES_DB", "test_db"),
         },
     }
 }
