@@ -1,0 +1,64 @@
+name: CI/CD DjangoProject02
+
+on:
+  push:
+    branches: [ '**' ]
+  pull_request:
+    branches: [ '**' ]
+
+jobs:
+  build-test-lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      - name: Install Poetry
+        run: pip install poetry
+
+      - name: Install dependencies
+        run: poetry install
+
+      - name: Run tests
+        run: poetry run python manage.py test
+
+      - name: Linting (flake8)
+        run: poetry run flake8 .
+
+  build-docker-image:
+    needs: build-test-lint
+    runs-on: ubuntu-latest
+    if: needs.build-test-lint.result == 'success'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: |
+          docker build -t myproject .
+          docker run --rm myproject python manage.py check
+
+  deploy-to-server:
+    needs: build-docker-image
+    runs-on: ubuntu-latest
+    if: needs.build-docker-image.result == 'success'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy via SSH (Docker Compose)
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          script: |
+            cd /home/deploy/myproject || { echo "Directory not found"; exit 1; }
+            git pull origin main || { echo "Git pull failed"; exit 1; }
+            docker-compose pull --parallel
+            docker-compose up -d --remove-orphans --build
+            echo "Deployment completed successfully"
