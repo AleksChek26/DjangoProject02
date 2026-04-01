@@ -7,6 +7,18 @@ on:
     branches: [ '**' ]
 
 jobs:
+  services:
+    db:
+      image: postgres:15
+      environment:
+        POSTGRES_DB: myproject
+        POSTGRES_USER: myproject
+        POSTGRES_PASSWORD: myproject
+      volumes:
+        - postgres_data:/var/lib/postgresql/data
+      ports:
+        - "5432:5432"
+
   build-test-lint:
     runs-on: ubuntu-latest
 
