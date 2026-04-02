@@ -54,6 +54,9 @@ jobs:
         run: poetry install
 
       - name: Run tests
+        env:
+          DATABASE_URL: postgres://myproject:myproject@postgres:5432/myproject
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
         run: poetry run python manage.py test
 
       - name: Linting (flake8)
