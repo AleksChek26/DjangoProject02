@@ -55,7 +55,7 @@ jobs:
 
       - name: Run tests
         env:
-          DATABASE_URL: postgres://myproject:myproject@postgres:5432/myproject
+          DATABASE_HOST: host.docker.internal
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
         run: poetry run python manage.py test
 
