@@ -72,8 +72,8 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build --no-cache -t myproject .
-          docker run --rm myproject python manage.py check
+          docker build --build-arg DB_HOST=host.docker.internal -t myproject .
+          docker run --rm --network host myproject python manage.py check
 
   deploy-to-server:
     needs: build-docker-image

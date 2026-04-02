@@ -1,6 +1,13 @@
 # Базовый образ Python
 FROM python:3.12-slim
 
+# Устанавливаем переменную для локальной разработки (если .env не найден)
+ENV DB_HOST=localhost
+
+# Если при сборке передан --build-arg DB_HOST=что-то,
+# эта переменная перезапишет значение по умолчанию.
+ARG DB_HOST
+
 # Устанавливаем зависимости системы
 RUN apt-get update && apt-get install -y \
     build-essential \
