@@ -89,7 +89,7 @@ jobs:
           port: 22
           script: |
             set -e
-            cd /home/deploy/myproject || { echo "Directory not found"; exit 1; }
+            cd /home/test/myproject || { echo "Directory not found"; exit 1; }
             git pull origin main || { echo "Git pull failed"; exit 1; }
             docker-compose pull --parallel
             docker-compose up -d --remove-orphans --build
