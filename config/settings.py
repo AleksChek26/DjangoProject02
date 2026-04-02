@@ -1,6 +1,8 @@
 import os
+import sys
 from datetime import timedelta
 from pathlib import Path
+from urllib.parse import urlparse
 
 from celery.schedules import crontab
 from dotenv import load_dotenv
@@ -77,20 +79,39 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
+# Определяем, запущен ли тест
+TESTING = 'test' in sys.argv
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.environ.get("POSTGRES_DB", "test_db"),
-        "USER": os.environ.get("POSTGRES_USER", "test_user"),
-        "PASSWORD": os.environ.get("POSTGRES_PASSWORD", "test_password"),
-        "HOST": os.environ.get("DB_HOST", "localhost"),
-        "PORT": os.environ.get("DB_PORT", "5432"),
-        "TEST": {
-            "NAME": "test_" + os.environ.get("POSTGRES_DB", "test_db"),
-        },
-    }
+# Настройки по умолчанию (для локальной разработки)
+DEFAULT_DB_CONFIG = {
+    "ENGINE": "django.db.backends.postgresql",
+    "NAME": "test_db",
+    "USER": "test_user",
+    "PASSWORD": "test_password",
+    "HOST": "localhost",
+    "PORT": "5432",
 }
+
+# Проверяем, указана ли переменная окружения для CI/продакшена
+if os.environ.get('DATABASE_URL'):
+    # Если переменная есть, парсим её
+    db_url = urlparse(os.environ['DATABASE_URL'])
+
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": db_url.path[1:],  # Убираем первый символ "/"
+            "USER": db_url.username,
+            "PASSWORD": db_url.password,
+            "HOST": db_url.hostname,
+            "PORT": db_url.port,
+        }
+    }
+else:
+    # Если переменной нет (локальная разработка), используем настройки по умолчанию
+    DATABASES = {
+        "default": DEFAULT_DB_CONFIG
+    }
 
 
 AUTH_PASSWORD_VALIDATORS = [
