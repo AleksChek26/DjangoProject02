@@ -2,7 +2,6 @@ import os
 import sys
 from datetime import timedelta
 from pathlib import Path
-from urllib.parse import urlparse
 
 from celery.schedules import crontab
 from dotenv import load_dotenv
@@ -88,31 +87,28 @@ DEFAULT_DB_CONFIG = {
     "NAME": "test_db",
     "USER": "test_user",
     "PASSWORD": "test_password",
-    "HOST": "localhost",
-    "PORT": "5432",
+    "HOST": os.environ.get("DATABASE_HOST", "localhost"),
+    "PORT": os.environ.get("DB_PORT", "5432"),
 }
 
-# Проверяем, указана ли переменная окружения для CI/продакшена
+# Основной словарь DATABASES
+DATABASES = {
+    "default": DEFAULT_DB_CONFIG
+}
+
 if os.environ.get('DATABASE_URL'):
-    # Если переменная есть, парсим её
+    from urllib.parse import urlparse
+
     db_url = urlparse(os.environ['DATABASE_URL'])
 
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.postgresql",
-            "NAME": db_url.path[1:],  # Убираем первый символ "/"
-            "USER": db_url.username,
-            "PASSWORD": db_url.password,
-            "HOST": db_url.hostname,
-            "PORT": db_url.port,
-        }
-    }
-else:
-    # Если переменной нет (локальная разработка), используем настройки по умолчанию
-    DATABASES = {
-        "default": DEFAULT_DB_CONFIG
-    }
-
+    # Обновляем словарь DATABASES с данными из URL
+    DATABASES['default'].update({
+        "NAME": db_url.path[1:],  # Убираем первый символ "/"
+        "USER": db_url.username,
+        "PASSWORD": db_url.password,
+        "HOST": db_url.hostname,
+        "PORT": db_url.port,
+    })
 
 AUTH_PASSWORD_VALIDATORS = [
     {

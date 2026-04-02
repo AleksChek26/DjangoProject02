@@ -8,6 +8,9 @@ ENV DB_HOST=localhost
 # эта переменная перезапишет значение по умолчанию.
 ARG DB_HOST
 
+# Это значение будет доступно приложению во время работы.
+ENV DATABASE_HOST=${DB_HOST}
+
 # Устанавливаем зависимости системы
 RUN apt-get update && apt-get install -y \
     build-essential \
