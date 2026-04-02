@@ -6,12 +6,20 @@ on:
   pull_request:
     branches: [ '**' ]
 
+env:
+  # Общие переменные для всех job
+  DATABASE_URL: postgres://myproject:myproject@postgres:5432/myproject
+
 jobs:
-  services:
+  build-test-lint:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.9', '3.10', '3.11', '3.12']
     services:
       postgres:
         image: postgres:16-alpine
-        environment:
+        env:
           POSTGRES_DB: myproject
           POSTGRES_USER: myproject
           POSTGRES_PASSWORD: myproject
@@ -19,20 +27,25 @@ jobs:
           - postgres_data:/var/lib/postgresql/data
         ports:
           - "5432:5432"
-
-  build-test-lint:
-    runs-on: ubuntu-latest
-
     env:
       SECRET_KEY: ${{ secrets.SECRET_KEY }}
-
+      PYTHONPATH: ${{ github.workspace }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Set up Python 3.12
+      - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4
         with:
-          python-version: '3.12'
+          python-version: ${{ matrix.python-version }}
+
+      - name: Cache Poetry dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pypoetry/virtualenvs
+          key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-poetry-
 
       - name: Install Poetry
         run: pip install poetry
@@ -51,11 +64,12 @@ jobs:
     runs-on: ubuntu-latest
     if: needs.build-test-lint.result == 'success'
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Build Docker image
         run: |
-          docker build -t myproject .
+          docker build --no-cache -t myproject .
           docker run --rm myproject python manage.py check
 
   deploy-to-server:
@@ -63,7 +77,8 @@ jobs:
     runs-on: ubuntu-latest
     if: needs.build-docker-image.result == 'success'
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Deploy via SSH (Docker Compose)
         uses: appleboy/ssh-action@v1.0.0
@@ -73,8 +88,13 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
           script: |
+            set -e
             cd /home/deploy/myproject || { echo "Directory not found"; exit 1; }
             git pull origin main || { echo "Git pull failed"; exit 1; }
             docker-compose pull --parallel
             docker-compose up -d --remove-orphans --build
             echo "Deployment completed successfully"
+
+# Описание томов для сервисов (PostgreSQL)
+volumes:
+  postgres_data:
