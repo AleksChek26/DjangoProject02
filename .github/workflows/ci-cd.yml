@@ -2,12 +2,11 @@ name: CI/CD DjangoProject02
 
 on:
   push:
-    branches: [ '**' ]
+    branches: [ '*' ]
   pull_request:
-    branches: [ '**' ]
+    branches: [ '*' ]
 
 env:
-  # Общие переменные для всех job
   DATABASE_URL: postgres://myproject:myproject@postgres:5432/myproject
 
 jobs:
@@ -23,8 +22,6 @@ jobs:
           POSTGRES_DB: myproject
           POSTGRES_USER: myproject
           POSTGRES_PASSWORD: myproject
-        volumes:
-          - postgres_data:/var/lib/postgresql/data
         ports:
           - "5432:5432"
     env:
@@ -53,9 +50,20 @@ jobs:
       - name: Install dependencies
         run: poetry install
 
+      - name: Wait for PostgreSQL
+        run: |
+          for i in {1..30}; do
+            if poetry run python -c "import psycopg2; conn = psycopg2.connect('$DATABASE_URL'); conn.close()" 2>/dev/null; then
+              echo "PostgreSQL is ready"
+              break
+            fi
+            echo "Waiting for PostgreSQL..."
+            sleep 2
+          done
+
       - name: Run tests
         env:
-          DATABASE_HOST: host.docker.internal
+          DATABASE_HOST: postgres
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
         run: poetry run python manage.py test
 
@@ -70,10 +78,21 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Cache Docker layers
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
       - name: Build Docker image
         run: |
-          docker build --build-arg DB_HOST=host.docker.internal -t myproject .
-          docker run --rm --network host myproject python manage.py check
+          docker build --build-arg DB_HOST=postgres -t myproject:${{ github.sha }} .
+          docker run --rm --network host myproject:${{ github.sha }} python manage.py check
 
   deploy-to-server:
     needs: build-docker-image
@@ -94,6 +113,15 @@ jobs:
             set -e
             cd /home/test/myproject || { echo "Directory not found"; exit 1; }
             git pull origin main || { echo "Git pull failed"; exit 1; }
+            [ -f docker-compose.yml ] || { echo "docker-compose.yml not found"; exit 1; }
             docker-compose pull --parallel
             docker-compose up -d --remove-orphans --build
+            docker-compose ps
             echo "Deployment completed successfully"
+
+      - name: Notify on failure
+        if: failure()
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_MESSAGE: 'CI/CD pipeline failed for DjangoProject02'
