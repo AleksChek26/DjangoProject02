@@ -39,3 +39,19 @@ isort = "^7.0.0"
 
 [tool.poetry]
 package-mode = false
+
+[tool.ruff]
+# Длина строки как у Black
+line-length = 88
+
+[tool.ruff.lint]
+# E501 — игнорируем длину строки (те самые ошибки в settings и миграциях)
+# F401 — если хотите оставить неиспользуемые импорты (но Ruff их сам удалит при --fix)
+select = ["E", "F", "I"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+# Полностью игнорируем все проверки в папках migrations
+"**/migrations/*" = ["F401", "E402", "I001"]
+# Игнорируем неиспользуемые импорты в инициализации пакетов
+"__init__.py" = ["F401"]

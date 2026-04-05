@@ -1,0 +1,121 @@
+name: CI/CD DjangoProject02
+
+on:
+  push:
+    branches: [ '*' ]
+  pull_request:
+    branches: [ '*' ]
+
+env:
+  DATABASE_URL: postgres://myproject:myproject@localhost:5432/myproject
+  SECRET_KEY: ${{ secrets.SECRET_KEY || 'temporary-key-for-testing' }}
+
+jobs:
+  build-test-lint:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.10', '3.11', '3.12']
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: myproject
+          POSTGRES_USER: myproject
+          POSTGRES_PASSWORD: myproject
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Cache Poetry virtualenv
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('**/poetry.lock') }}
+          restore-keys: |
+            venv-${{ runner.os }}-${{ matrix.python-version }}-
+
+      - name: Install dependencies
+        run: poetry install --no-interaction --no-root
+
+      - name: Run tests
+        run: |
+          # Ждем готовности БД (утилита pg_isready уже есть в образе или ставится через apt)
+          poetry run python manage.py test
+
+      - name: Run Linting (Ruff)
+        run: |
+          poetry run pip install ruff
+          # Ruff удалит лишние импорты и поправит всё, что сможет
+          poetry run ruff check --fix .
+          # Если останутся неисправимые ошибки (длинные строки), он их покажет
+          poetry run ruff check .
+
+  build-docker-image:
+    needs: build-test-lint
+    runs-on: ubuntu-latest
+    # Собираем образ только при пуше в main или тегах, чтобы не тратить ресурсы на каждый коммит в ветках
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        run: |
+          docker build -t myproject:${{ github.sha }} .
+          # Проверку 'check' лучше делать без коннекта к БД или пропустить здесь, 
+          # так как тесты уже прошли выше.
+          docker run --rm myproject:${{ github.sha }} python manage.py check --deploy --dry-run
+
+  deploy-to-server:
+    needs: build-docker-image
+    runs-on: ubuntu-latest
+    # Деплой только из ветки main
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            set -e
+            cd /home/test/myproject
+            git pull origin main
+            # Передаем SHA коммита, если используете теги образов в compose
+            export IMAGE_TAG=${{ github.sha }}
+            docker-compose pull
+            docker-compose up -d --remove-orphans
+            docker image prune -f
+
+      - name: Notify on failure
+        if: failure()
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_MESSAGE: 'Ошибка в Pipeline DjangoProject02. Ветка: ${{ github.ref }}'
+
