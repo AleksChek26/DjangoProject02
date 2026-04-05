@@ -1,5 +1,6 @@
 name: CI/CD DjangoProject02
 
+
 on:
   push:
     branches: [ '*' ]
@@ -8,6 +9,11 @@ on:
 
 env:
   DATABASE_URL: postgres://myproject:myproject@postgres:5432/myproject
+  DATABASE_HOST: postgres
+  DATABASE_PORT: 5432
+  DATABASE_NAME: myproject
+  DATABASE_USER: myproject
+  DATABASE_PASSWORD: myproject
 
 
 jobs:
@@ -27,7 +33,7 @@ jobs:
           --health-cmd pg_isready
           --health-interval 10s
           --health-timeout 5s
-          --health-retries 5
+          --health-retries 10
         ports:
           - 5432:5432
     env:
@@ -56,28 +62,58 @@ jobs:
       - name: Install dependencies
         run: poetry install
 
-      - name: Wait for PostgreSQL readiness
+      - name: Debug: Check network connectivity
         run: |
-          for i in {1..60}; do
+          echo "Checking network connectivity..."
+          nslookup postgres || echo "nslookup failed"
+          sleep 5
+
+      - name: Wait for PostgreSQL with multiple checks
+        run: |
+          for i in {1..120}; do
+            # Check DNS resolution
+            if ! nslookup postgres >/dev/null 2>&1; then
+              echo "DNS not ready, attempt $i"
+              sleep 2
+              continue
+            fi
+
+            # Check port connectivity
+            if ! nc -z -w 5 postgres 5432; then
+              echo "Port not ready, attempt $i"
+              sleep 2
+              continue
+            fi
+
+            # Final check with psycopg2
             if poetry run python -c "
-              import psycopg2
+              import psycopg2, time
               try:
-                conn = psycopg2.connect('$DATABASE_URL')
+                conn = psycopg2.connect(
+                  host='$DATABASE_HOST',
+                  port='$DATABASE_PORT',
+                  dbname='$DATABASE_NAME',
+                  user='$DATABASE_USER',
+                  password='$DATABASE_PASSWORD'
+                )
                 conn.close()
-                print('PostgreSQL is ready')
+                print('PostgreSQL is fully ready')
                 exit(0)
-              except Exception:
-                pass
+              except Exception as e:
+                print(f'Connection failed: {e}')
+                time.sleep(2)
             " 2>/dev/null; then
               break
             fi
-            echo "Waiting for PostgreSQL... (attempt $i)"
-            sleep 5
           done
 
       - name: Run tests
         env:
-          DATABASE_HOST: postgres
+          DATABASE_HOST: ${{ env.DATABASE_HOST }}
+          DATABASE_PORT: ${{ env.DATABASE_PORT }}
+          DATABASE_NAME: ${{ env.DATABASE_NAME }}
+          DATABASE_USER: ${{ env.DATABASE_USER }}
+          DATABASE_PASSWORD: ${{ env.DATABASE_PASSWORD }}
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
         run: |
           poetry run python manage.py test
