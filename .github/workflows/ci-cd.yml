@@ -63,8 +63,14 @@ jobs:
           # Ждем готовности БД (утилита pg_isready уже есть в образе или ставится через apt)
           poetry run python manage.py test
 
-      - name: Run Linting (flake8)
-        run: poetry run flake8 .
+      - name: Run Linting (Ruff)
+        run: |
+          poetry run pip install ruff
+          # Ruff удалит лишние импорты и поправит всё, что сможет
+          poetry run ruff check --fix .
+          # Если останутся неисправимые ошибки (длинные строки), он их покажет
+          poetry run ruff check .
+
   build-docker-image:
     needs: build-test-lint
     runs-on: ubuntu-latest

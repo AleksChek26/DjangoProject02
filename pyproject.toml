@@ -39,3 +39,17 @@ isort = "^7.0.0"
 
 [tool.poetry]
 package-mode = false
+
+[tool.ruff]
+# Устанавливаем длину строки как у Black
+line-length = 88
+
+[tool.ruff.lint]
+# Какие ошибки проверять (стандартный набор + импорты)
+select = ["E", "F", "I"]
+# Игнорируем специфические конфликты с форматированием
+ignore = ["E203"]
+
+[tool.ruff.lint.per-file-ignores]
+# Игнорируем неиспользуемые импорты в __init__.py
+"__init__.py" = ["F401"]
