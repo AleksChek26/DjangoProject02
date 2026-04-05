@@ -58,14 +58,13 @@ jobs:
       - name: Install dependencies
         run: poetry install --no-interaction --no-root
 
-      - name: Run Linting (flake8)
-        run: poetry run flake8 .
-
       - name: Run tests
         run: |
           # Ждем готовности БД (утилита pg_isready уже есть в образе или ставится через apt)
           poetry run python manage.py test
 
+      - name: Run Linting (flake8)
+        run: poetry run flake8 .
   build-docker-image:
     needs: build-test-lint
     runs-on: ubuntu-latest
