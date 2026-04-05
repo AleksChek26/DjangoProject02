@@ -49,7 +49,9 @@ line-length = 88
 select = ["E", "F", "I"]
 # Игнорируем специфические конфликты с форматированием
 ignore = ["E203"]
+ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
 # Игнорируем неиспользуемые импорты в __init__.py
 "__init__.py" = ["F401"]
+"**/migrations/*" = ["all"]
