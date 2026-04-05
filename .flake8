@@ -1,0 +1,14 @@
+[flake8]
+# Совместимость с Black
+max-line-length = 88
+extend-ignore = E203, W503
+# Исключаем автогенерируемые файлы и окружение
+exclude =
+    .git,
+    __pycache__,
+    build,
+    dist,
+    .venv,
+    venv,
+    migrations,
+    manage.py
