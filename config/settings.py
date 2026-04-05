@@ -79,7 +79,7 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 
 # Определяем, запущен ли тест
-TESTING = 'test' in sys.argv
+TESTING = "test" in sys.argv
 
 # Настройки по умолчанию (для локальной разработки)
 DEFAULT_DB_CONFIG = {
@@ -92,23 +92,23 @@ DEFAULT_DB_CONFIG = {
 }
 
 # Основной словарь DATABASES
-DATABASES = {
-    "default": DEFAULT_DB_CONFIG
-}
+DATABASES = {"default": DEFAULT_DB_CONFIG}
 
-if os.environ.get('DATABASE_URL'):
+if os.environ.get("DATABASE_URL"):
     from urllib.parse import urlparse
 
-    db_url = urlparse(os.environ['DATABASE_URL'])
+    db_url = urlparse(os.environ["DATABASE_URL"])
 
     # Обновляем словарь DATABASES с данными из URL
-    DATABASES['default'].update({
-        "NAME": db_url.path[1:],  # Убираем первый символ "/"
-        "USER": db_url.username,
-        "PASSWORD": db_url.password,
-        "HOST": db_url.hostname,
-        "PORT": db_url.port,
-    })
+    DATABASES["default"].update(
+        {
+            "NAME": db_url.path[1:],  # Убираем первый символ "/"
+            "USER": db_url.username,
+            "PASSWORD": db_url.password,
+            "HOST": db_url.hostname,
+            "PORT": db_url.port,
+        }
+    )
 
 AUTH_PASSWORD_VALIDATORS = [
     {
