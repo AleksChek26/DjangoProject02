@@ -1,53 +1,34 @@
-# Этап 1: сборка приложения
-FROM python:3.11-slim as builder
+# Базовый образ Python
+FROM python:3.12-slim
 
-WORKDIR /app
+# Устанавливаем переменную для локальной разработки (если .env не найден)
+ENV DB_HOST=localhost
 
-# Установка системных зависимостей
+# Если при сборке передан --build-arg DB_HOST=что-то,
+# эта переменная перезапишет значение по умолчанию.
+ARG DB_HOST
+
+# Это значение будет доступно приложению во время работы.
+ENV DATABASE_HOST=${DB_HOST}
+
+# Устанавливаем зависимости системы
 RUN apt-get update && apt-get install -y \
     build-essential \
-    gcc \
+    libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Установка Poetry
-RUN pip install poetry
-
-# Копирование файлов зависимостей
-COPY pyproject.toml poetry.lock ./
-
-# Установка зависимостей в виртуальное окружение
-RUN poetry config virtualenvs.create false \
-    && poetry install --no-dev --no-interaction --no-ansi
-
-# Этап 2: создание финального образа
-FROM python:3.11-slim
-
+# Рабочая директория
 WORKDIR /app
 
-# Установка Nginx
-RUN apt-get update && apt-get install -y nginx \
-    && rm -rf /var/lib/apt/lists/* \
-    && rm /etc/nginx/conf.d/default.conf
+# Копируем и устанавливаем зависимости
+COPY pyproject.toml poetry.lock ./
+RUN pip install poetry && poetry config virtualenvs.create false && poetry install --no-interaction --no-ansi
 
-# Копирование собранного приложения
-COPY --from=builder /app /app
-COPY --from=builder /root/.cache /root/.cache
+# Копируем проект
+COPY . .
 
-# Копирование конфигурации Nginx
-COPY nginx.conf /etc/nginx/nginx.conf
+# Открываем порт для Gunicorn
+EXPOSE 8000
 
-# Создание пользователя для приложения
-RUN groupadd -r appuser && useradd -r -g appuser appuser
-RUN chown -R appuser:appuser /app
-RUN chown -R www-data:www-data /var/cache/nginx /var/run/nginx.pid
-
-# Копирование скриптов запуска
-COPY docker-entrypoint.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
-
-# Открытие портов
-EXPOSE 80
-
-# Точка входа
-USER appuser
-ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+# Запускаем Gunicorn (можно переопределить в docker-compose)
+CMD ["gunicorn", "myproject.wsgi:application", "--bind", "0.0.0.0:8000"]

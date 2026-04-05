@@ -1,4 +1,5 @@
 import os
+import sys
 from datetime import timedelta
 from pathlib import Path
 
@@ -14,7 +15,7 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 
 DEBUG = True if os.getenv("DEBUG") == "True" else False
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'server-ip']
+ALLOWED_HOSTS = ["localhost", "127.0.0.1", "server-ip"]
 
 
 INSTALLED_APPS = [
@@ -77,18 +78,37 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
+# Определяем, запущен ли тест
+TESTING = "test" in sys.argv
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql_psycopg2",
-        "NAME": os.getenv("POSTGRES_DB"),
-        "USER": os.getenv("POSTGRES_USER"),
-        "PASSWORD": os.getenv("POSTGRES_PASSWORD"),
-        "HOST": os.getenv("DB_HOST"),
-        "PORT": os.getenv("DB_PORT"),
-    }
+# Настройки по умолчанию (для локальной разработки)
+DEFAULT_DB_CONFIG = {
+    "ENGINE": "django.db.backends.postgresql",
+    "NAME": "test_db",
+    "USER": "test_user",
+    "PASSWORD": "test_password",
+    "HOST": os.environ.get("DATABASE_HOST", "localhost"),
+    "PORT": os.environ.get("DB_PORT", "5432"),
 }
 
+# Основной словарь DATABASES
+DATABASES = {"default": DEFAULT_DB_CONFIG}
+
+if os.environ.get("DATABASE_URL"):
+    from urllib.parse import urlparse
+
+    db_url = urlparse(os.environ["DATABASE_URL"])
+
+    # Обновляем словарь DATABASES с данными из URL
+    DATABASES["default"].update(
+        {
+            "NAME": db_url.path[1:],  # Убираем первый символ "/"
+            "USER": db_url.username,
+            "PASSWORD": db_url.password,
+            "HOST": db_url.hostname,
+            "PORT": db_url.port,
+        }
+    )
 
 AUTH_PASSWORD_VALIDATORS = [
     {
