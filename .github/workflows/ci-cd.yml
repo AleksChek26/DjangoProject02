@@ -103,7 +103,7 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             set -e
-            cd /home/test/myproject
+            cd /home/test/DjangoProject02
             git pull origin main
             # Передаем SHA коммита, если используете теги образов в compose
             export IMAGE_TAG=${{ github.sha }}
