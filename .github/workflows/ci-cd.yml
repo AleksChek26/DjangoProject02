@@ -111,10 +111,10 @@ jobs:
             docker-compose up -d --remove-orphans
             docker image prune -f
 
-      - name: Notify on failure
-        if: failure()
-        uses: rtCamp/action-slack-notify@v2
-        env:
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
-          SLACK_MESSAGE: 'Ошибка в Pipeline DjangoProject02. Ветка: ${{ github.ref }}'
+      #- name: Notify on failure
+       # if: failure()
+        #uses: rtCamp/action-slack-notify@v2
+        #env:
+        # SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+        # SLACK_MESSAGE: 'Ошибка в Pipeline DjangoProject02. Ветка: ${{ github.ref }}'
 
