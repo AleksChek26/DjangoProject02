@@ -87,7 +87,7 @@ jobs:
         run: |
           docker build -t myproject:${{ github.sha }} .
           # Добавляем флаг -e с любым значением для SECRET_KEY
-          docker run --rm -e SECRET_KEY="temporary-key-for-check" myproject:${{ github.sha }} python manage.py check --deploy --dry-run
+          docker run --rm -e SECRET_KEY="temp-key" myproject:${{ github.sha }} python manage.py check --deploy
 
   deploy-to-server:
     needs: build-docker-image
