@@ -86,9 +86,8 @@ jobs:
       - name: Build Docker image
         run: |
           docker build -t myproject:${{ github.sha }} .
-          # Проверку 'check' лучше делать без коннекта к БД или пропустить здесь, 
-          # так как тесты уже прошли выше.
-          docker run --rm myproject:${{ github.sha }} python manage.py check --deploy --dry-run
+          # Добавляем флаг -e с любым значением для SECRET_KEY
+          docker run --rm -e SECRET_KEY="temporary-key-for-check" myproject:${{ github.sha }} python manage.py check --deploy --dry-run
 
   deploy-to-server:
     needs: build-docker-image
